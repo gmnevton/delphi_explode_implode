@@ -129,8 +129,9 @@ begin
       SetLength(Result, Length(Result) + 1);
       if TrimParts then
         temp:=Trim(temp);
-      Result[High(Result)]:=temp;
+      Result[High(Result)]:=temp; // possible memory leak in temp value
       Delete(temp_value, 1, poz + sl - 1);
+      temp:='';
     end
     else begin
       poz:=Length(temp_value) + 1;
@@ -138,8 +139,9 @@ begin
       SetLength(Result, Length(Result) + 1);
       if TrimParts then
         temp:=Trim(temp);
-      Result[High(Result)]:=temp;
+      Result[High(Result)]:=temp; // possible memory leak in temp value
       Delete(temp_value, 1, poz);
+      temp:='';
     end;
   end;
 end;
@@ -208,9 +210,10 @@ begin
       if not deQuoted(temp) and TrimParts then
         temp:=Trim(temp);
 //      deQuoted(temp);
-      Result[High(Result)]:=temp;
+      Result[High(Result)]:=temp; // possible memory leak in temp value
       Delete(temp_value, 1, poz + sl - 1);
       poz:=1;
+      temp:='';
     end
     else begin
       poz:=Length(temp_value) + 1;
@@ -219,8 +222,9 @@ begin
       if not deQuoted(temp) and TrimParts then
         temp:=Trim(temp);
 //      deQuoted(temp);
-      Result[High(Result)]:=temp;
+      Result[High(Result)]:=temp; // possible memory leak in temp value
       Delete(temp_value, 1, poz);
+      temp:='';
     end;
   end;
 end;
@@ -276,6 +280,7 @@ begin
       temp_value:=Trim(temp_value);
     if ((Result = '') and (temp_value <> '')) or not in_array(temp_value, explode(Spliter, Result)) then
       Result:=Result + temp_value + Spliter;
+    temp_value:='';  
   end;
 end;
 
@@ -314,12 +319,14 @@ begin
       if not OnlyTheSame then begin
         b:=Length(temp_value);
         if b > a then
-          Delete(temp_value, a + 1, b - a);
+          Delete(temp_value, a + 1, b - a); // possible memory leak in temp value
       end;
       if needle = temp_value then begin
+        temp_value:='';
         Result:=True;
         Break;
       end;
+      temp_value:='';
     end;
   except
     Result:=False;
@@ -417,10 +424,11 @@ begin
     if not OnlyTheSame then begin
       b:=Length(temp_value);
       if b > a then
-        Delete(temp_value, a + 1, b - a);
+        Delete(temp_value, a + 1, b - a); // possible memory leak in temp value
     end;
     if Value = temp_value then
       Inc(Result);
+    temp_value:='';  
   end;
 end;
 
@@ -465,12 +473,14 @@ begin
       if not OnlyTheSame then begin
         b:=Length(temp_value);
         if b > a then
-          Delete(temp_value, a + 1, b - a);
+          Delete(temp_value, a + 1, b - a); // possible memory leak in temp value
       end;
       if needle = temp_value then begin
+        temp_value:='';
         Result:=i;
         Break;
       end;
+      temp_value:='';
     end;
   except
     Result:=-1;
@@ -583,8 +593,9 @@ begin
       SetLength(Result, Length(Result) + 1);
       if TrimParts then
         temp:=WideTrim(temp);
-      Result[High(Result)]:=temp;
+      Result[High(Result)]:=temp; // possible memory leak in temp value
       Delete(temp_value, 1, poz + Length(Spliter) - 1);
+      temp:='';
     end
     else begin
       poz:=Length(temp_value) + 1;
@@ -592,8 +603,9 @@ begin
       SetLength(Result, Length(Result) + 1);
       if TrimParts then
         temp:=WideTrim(temp);
-      Result[High(Result)]:=temp;
+      Result[High(Result)]:=temp; // possible memory leak in temp value
       Delete(temp_value, 1, poz);
+      temp:='';
     end;
   end;
 end;
@@ -610,9 +622,10 @@ begin
     if (l > 0) and (temp_value[l - Length(Spliter) + 1] = Spliter) then
       Delete(temp_value, l - Length(Spliter) + 1, Length(Spliter));
     if TrimParts then
-      temp_value:=WideTrim(temp_value);
+      temp_value:=WideTrim(temp_value); // possible memory leak in temp value
     if ((Result = '') and (temp_value <> '')) or not in_arrayws(temp_value, explodews(Spliter, Result)) then
       Result:=Result + temp_value + Spliter;
+    temp_value:='';  
   end;
 end;
 
@@ -636,12 +649,14 @@ begin
       if not OnlyTheSame then begin
         b:=Length(temp_value);
         if b > a then
-          Delete(temp_value, a + 1, b - a);
+          Delete(temp_value, a + 1, b - a); // possible memory leak in temp value
       end;
       if needle = temp_value then begin
+        temp_value:='';
         Result:=True;
         Break;
       end;
+      temp_value:='';
     end;
   except
     Result:=False;
@@ -718,8 +733,9 @@ begin
     Result:=valFalse;
 end;
 
+// save to file using Encoding without BOM
 procedure SaveToFile(const FileName, Output: String; const Append: Boolean; const Encoding: TEncoding);
-begin
+begin 
   try
     with TStreamWriter.Create(FileName, Append, Encoding) do try
       if not Append then begin
@@ -843,8 +859,10 @@ end;
 function ExtractURLProtocol(const URL: String): String;
 begin
   Result:='';
-  if Pos('://', URL) > 0 then
+  if Pos('://', URL) > 0 then begin
+    Result:=URL;
     Delete(Result, Pos('://', URL), MaxInt);
+  end;  
 end;
 
 function ExtractURLHost(const URL: String): String;
@@ -901,14 +919,23 @@ begin
     Result:=Copy(URL, LastDelimiter('/', URL) + 1, MaxInt);
 end;
 
+// default windows directory structure is:
+//
+// .
+// ..
+// dirs
+// files
+// 
+// so first we have to find . and second .. and now if we find some file, then the directory is not empty
 function IsDirectoryEmpty(const directory: String): Boolean;
 var
   searchRec: TSearchRec;
 begin
   if DirectoryExists(ExtractFilePath(directory)) then try
-    Result:=not ((FindFirst(IncludeTrailingPathDelimiter(ExtractFilePath(directory)) + '*.*', faAnyFile + faReadOnly + faHidden - faDirectory - faVolumeID, searchRec) = 0) and
-                 (FindNext(searchRec) = 0) and
-                 (FindNext(searchRec) <> 0));
+    Result:=not ((FindFirst(IncludeTrailingPathDelimiter(ExtractFilePath(directory)) + '*.*', 
+                  faAnyFile + faReadOnly + faHidden - faDirectory - faVolumeID, searchRec) = 0) and // find .
+                 (FindNext(searchRec) = 0) and // find ..
+                 (FindNext(searchRec) <> 0)); // no files found if <> 0, so negate this to get result
   finally
     SysUtils.FindClose(searchRec);
   end
