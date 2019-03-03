@@ -1,2 +1,2 @@
 # delphi_explode_implode
-Delphi 2010+ version of PHP functions
+Delphi 2010+ version of PHP functions and more
