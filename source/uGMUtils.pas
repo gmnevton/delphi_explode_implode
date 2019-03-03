@@ -776,48 +776,58 @@ end;
 function StringMatchesMask(S, Mask: String; const case_sensitive: Boolean = False): Boolean;
 var
   sIndex, maskIndex: Integer;
+  sLength, maskLength: Integer;
 begin
   if not case_sensitive then begin
     S := AnsiUpperCase(S);
-    Mask := AnsiUpperCase(mask);
+    Mask := AnsiUpperCase(Mask);
   end;
   Result := True; // blatant optimism
   sIndex := 1;
   maskIndex := 1;
-  while (sIndex <= Length(S)) and (maskIndex <= Length(mask)) do begin
-    case mask[maskIndex] of
+  sLength:=Length(S);
+  maskLength:=Length(Mask);
+  while (sIndex <= sLength) and (maskIndex <= maskLength) do begin
+    case Mask[maskIndex] of
       '?': begin // matches any character
         Inc(sIndex);
         Inc(maskIndex);
       end;
       '*': begin // matches 0 or more characters, so need to check for next character in Mask
         Inc(maskIndex);
-        if maskIndex > Length(mask) then // * at end matches rest of string
+        if maskIndex > maskLength then // * at end matches rest of string
             Exit
-        else if CharInSet(mask[maskindex], ['*', '?']) then
+        else if CharInSet(Mask[maskindex], ['*', '?']) then
             raise Exception.Create('Invalid mask');
         // look for Mask character in S
-        while (sIndex <= Length(S)) and (S[sIndex] <> mask[maskIndex]) do
+        while (sIndex <= sLength) and (S[sIndex] <> Mask[maskIndex]) do
           Inc(sIndex);
-        if sIndex > Length(S) then begin // character not found, no match
+        if sIndex > sLength then begin // character not found, no match
           Result := False;
           Exit;
         end;
       end;
     else
-      if S[sIndex] = mask[maskIndex] then begin
+      if S[sIndex] = Mask[maskIndex] then begin
         Inc(sIndex);
         Inc(maskIndex);
       end
-      else begin // no match
-        Result := False;
-        Exit;
+      else begin // no match, reset mask index and search again
+        if maskIndex > 1 then begin
+          maskIndex:=1;
+        end
+        else begin
+          Result := False;
+          Exit;
+        end;
       end;
     end;
   end;
   // if we have reached the end of both S and Mask we have a complete match, otherwise we only have a partial match
-  if (sIndex <= Length(S)) or (maskIndex <= Length(mask)) then
-    Result := False;
+  if (sIndex <= sLength) or (maskIndex <= maskLength) then begin
+    if (sIndex > sLength) and (maskIndex <= maskLength) and (Mask[maskIndex] <> '*') then
+      Result := False;
+  end;
 end;
 
 function CharFromVirtualKey(Key: Word): Char;
